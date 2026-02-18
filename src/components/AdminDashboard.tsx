@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Users, FileCheck, Search, Download, ChevronRight } from 'lucide-react';
+import { format, endOfMonth } from 'date-fns';
+import { it } from 'date-fns/locale';
+import { generateAttendancePDF } from '../lib/pdf';
 
 interface UserProfile {
     id: string;
     full_name: string | null;
-    email: string;
+    email?: string;
     role: string;
 }
 
@@ -19,6 +22,7 @@ export const AdminDashboard: React.FC = () => {
     const [users, setUsers] = useState<UserProfile[]>([]);
     const [closures, setClosures] = useState<Closure[]>([]);
     const [loading, setLoading] = useState(true);
+    const [generating, setGenerating] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
@@ -28,20 +32,16 @@ export const AdminDashboard: React.FC = () => {
     const fetchData = async () => {
         setLoading(true);
 
-        // Fetch all profiles
         const { data: profilesData, error: profilesError } = await supabase
             .from('profiles')
             .select('*');
 
-        // Fetch all closures for the current/previous months
         const { data: closuresData, error: closuresError } = await supabase
             .from('monthly_closures')
             .select('*')
             .order('submitted_at', { ascending: false });
 
         if (!profilesError && profilesData) {
-            // In a real scenario, we might want to join with auth.users to get emails
-            // For now, we use the display names
             setUsers(profilesData);
         }
 
@@ -50,6 +50,35 @@ export const AdminDashboard: React.FC = () => {
         }
 
         setLoading(false);
+    };
+
+    const handleGeneratePDF = async (closure: Closure) => {
+        const user = users.find(u => u.id === closure.user_id);
+        if (!user) return;
+
+        const closureKey = `${closure.user_id}-${closure.month_year}`;
+        setGenerating(closureKey);
+
+        const [year, month] = closure.month_year.split('-').map(Number);
+        const startDate = new Date(year, month - 1, 1);
+        const endDate = endOfMonth(startDate);
+
+        const { data: recordsData, error } = await supabase
+            .from('daily_records')
+            .select('*')
+            .eq('user_id', closure.user_id)
+            .gte('work_date', format(startDate, 'yyyy-MM-dd'))
+            .lte('work_date', format(endDate, 'yyyy-MM-dd'));
+
+        if (!error && recordsData) {
+            await generateAttendancePDF({
+                userName: user.full_name || 'Dipendente',
+                month: startDate,
+                records: recordsData
+            });
+        }
+
+        setGenerating(null);
     };
 
     const filteredUsers = users.filter(user =>
@@ -120,18 +149,24 @@ export const AdminDashboard: React.FC = () => {
                         ) : (
                             closures.map(closure => {
                                 const user = users.find(u => u.id === closure.user_id);
+                                const closureKey = `${closure.user_id}-${closure.month_year}`;
                                 return (
-                                    <div key={`${closure.user_id}-${closure.month_year}`} className="closure-item">
+                                    <div key={closureKey} className="closure-item">
                                         <div className="closure-info">
                                             <div className="closure-month">
-                                                {closure.month_year}
+                                                {format(new Date(closure.month_year + '-01'), 'MMMM yyyy', { locale: it })}
                                             </div>
                                             <div className="closure-user">
                                                 {user?.full_name || 'Utente'}
                                             </div>
                                         </div>
-                                        <button className="pdf-btn" title="Genera PDF">
-                                            <Download size={16} /> PDF
+                                        <button
+                                            className="pdf-btn"
+                                            onClick={() => handleGeneratePDF(closure)}
+                                            disabled={generating === closureKey}
+                                        >
+                                            <Download size={16} />
+                                            {generating === closureKey ? '...' : 'PDF'}
                                         </button>
                                     </div>
                                 );
