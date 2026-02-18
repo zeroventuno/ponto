@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { X, Download } from 'lucide-react';
+import { X, Download, FileCheck } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface MonthCloseProps {
@@ -115,6 +115,7 @@ export const MonthClose: React.FC<MonthCloseProps> = ({ userId, month, onClose }
     );
 
     const exportToExcel = () => {
+        // ... (existing logic)
         const data = rows.map(r => ({
             Data: r.date,
             Giorno: r.dayName,
@@ -125,7 +126,6 @@ export const MonthClose: React.FC<MonthCloseProps> = ({ userId, month, onClose }
             'Note': r.notes
         }));
 
-        // Add totals row
         data.push({
             Data: 'TOTALE',
             Giorno: '',
@@ -140,6 +140,25 @@ export const MonthClose: React.FC<MonthCloseProps> = ({ userId, month, onClose }
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Chiusura Mese");
         XLSX.writeFile(wb, `Chiusura_${format(month, 'MMMM_yyyy')}.xlsx`);
+    };
+
+    const submitClosure = async () => {
+        const monthYear = format(month, 'yyyy-MM');
+        const { error } = await supabase
+            .from('monthly_closures')
+            .upsert({
+                user_id: userId,
+                month_year: monthYear,
+                submitted_at: new Date().toISOString()
+            }, {
+                onConflict: 'user_id, month_year'
+            });
+
+        if (!error) {
+            alert('Chiusura mensile inviata con successo all\'amministrazione!');
+        } else {
+            alert('Errore durante l\'invio della chiusura: ' + error.message);
+        }
     };
 
     return (
@@ -211,7 +230,10 @@ export const MonthClose: React.FC<MonthCloseProps> = ({ userId, month, onClose }
                         </div>
 
                         <div className="report-export-row">
-                            <button className="export-btn" onClick={exportToExcel}>
+                            <button className="secondary-btn" onClick={submitClosure} style={{ flex: 1, height: 44 }}>
+                                <FileCheck size={18} /> Invia all'Amministrazione
+                            </button>
+                            <button className="export-btn" onClick={exportToExcel} style={{ flex: 1, height: 44 }}>
                                 <Download size={18} /> Esporta Excel
                             </button>
                         </div>
