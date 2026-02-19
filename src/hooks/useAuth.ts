@@ -29,15 +29,20 @@ export function useAuth() {
 
     useEffect(() => {
         // Check active session
-        supabase.auth.getSession().then(({ data: { session } }) => {
+        supabase.auth.getSession().then(async ({ data: { session } }) => {
             const currentUser = session?.user ?? null;
             setUser(currentUser);
-            if (currentUser) {
-                fetchProfile(currentUser.id);
-            } else {
-                setProfile(null);
+            try {
+                if (currentUser) {
+                    await fetchProfile(currentUser.id);
+                } else {
+                    setProfile(null);
+                }
+            } catch (err) {
+                console.error("Initial session error:", err);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         });
 
         // Listen for changes
