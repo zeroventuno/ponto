@@ -15,6 +15,8 @@ function App() {
     (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
   );
 
+  const [timedOut, setTimedOut] = useState(false);
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
@@ -25,11 +27,11 @@ function App() {
     if (loading) {
       const timer = setTimeout(() => {
         console.warn("Loading taking too long, forcing entry...");
-        // Although we can't force the 'loading' state from useAuth directly here, 
-        // we can potentially have a local force state if needed.
-        // For now, let's just monitor.
+        setTimedOut(true);
       }, 5000);
       return () => clearTimeout(timer);
+    } else {
+      setTimedOut(false);
     }
   }, [loading]);
 
@@ -37,7 +39,7 @@ function App() {
     setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
   };
 
-  if (loading) {
+  if (loading && !timedOut) {
     return (
       <div className="loading-container" style={{ minHeight: '100vh' }}>
         <div className="spinner" />
@@ -45,7 +47,7 @@ function App() {
     );
   }
 
-  if (!user) {
+  if (!user && !timedOut) {
     return <AuthUI toggleTheme={toggleTheme} theme={theme} />;
   }
 

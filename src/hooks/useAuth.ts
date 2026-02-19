@@ -28,6 +28,14 @@ export function useAuth() {
     };
 
     useEffect(() => {
+        // Safety timeout to prevent infinite loading
+        const safetyTimer = setTimeout(() => {
+            if (loading) {
+                console.warn("Auth check timed out, forcing loading false");
+                setLoading(false);
+            }
+        }, 5000);
+
         // Check active session
         supabase.auth.getSession().then(async ({ data: { session } }) => {
             const currentUser = session?.user ?? null;
@@ -42,6 +50,7 @@ export function useAuth() {
                 console.error("Initial session error:", err);
             } finally {
                 setLoading(false);
+                clearTimeout(safetyTimer);
             }
         });
 
@@ -60,10 +69,14 @@ export function useAuth() {
                 console.error("Auth change error:", err);
             } finally {
                 setLoading(false);
+                clearTimeout(safetyTimer);
             }
         });
 
-        return () => subscription.unsubscribe();
+        return () => {
+            subscription.unsubscribe();
+            clearTimeout(safetyTimer);
+        };
     }, []);
 
     return { user, profile, loading };
