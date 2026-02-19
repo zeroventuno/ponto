@@ -159,19 +159,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ userId, onViewHistory }) =
                     <div className="shift-field">
                         <label className="shift-label">Entrata</label>
                         <input
-                            type="time"
+                            type="text"
                             className="shift-input"
+                            placeholder="00:00"
+                            maxLength={5}
                             value={localRecord?.morning_enter || ''}
-                            onChange={(e) => setLocalRecord(prev => prev ? { ...prev, morning_enter: e.target.value } : null)}
+                            onChange={(e) => {
+                                let val = e.target.value.replace(/\D/g, '');
+                                if (val.length >= 2) val = val.slice(0, 2) + ':' + val.slice(2, 4);
+                                setLocalRecord(prev => prev ? { ...prev, morning_enter: val } : null);
+                            }}
                         />
                     </div>
                     <div className="shift-field">
                         <label className="shift-label">Uscita</label>
                         <input
-                            type="time"
+                            type="text"
                             className="shift-input"
+                            placeholder="00:00"
+                            maxLength={5}
                             value={localRecord?.morning_exit || ''}
-                            onChange={(e) => setLocalRecord(prev => prev ? { ...prev, morning_exit: e.target.value } : null)}
+                            onChange={(e) => {
+                                let val = e.target.value.replace(/\D/g, '');
+                                if (val.length >= 2) val = val.slice(0, 2) + ':' + val.slice(2, 4);
+                                setLocalRecord(prev => prev ? { ...prev, morning_exit: val } : null);
+                            }}
                         />
                     </div>
                 </div>
@@ -184,19 +196,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ userId, onViewHistory }) =
                     <div className="shift-field">
                         <label className="shift-label">Entrata</label>
                         <input
-                            type="time"
+                            type="text"
                             className="shift-input"
+                            placeholder="00:00"
+                            maxLength={5}
                             value={localRecord?.afternoon_enter || ''}
-                            onChange={(e) => setLocalRecord(prev => prev ? { ...prev, afternoon_enter: e.target.value } : null)}
+                            onChange={(e) => {
+                                let val = e.target.value.replace(/\D/g, '');
+                                if (val.length >= 2) val = val.slice(0, 2) + ':' + val.slice(2, 4);
+                                setLocalRecord(prev => prev ? { ...prev, afternoon_enter: val } : null);
+                            }}
                         />
                     </div>
                     <div className="shift-field">
                         <label className="shift-label">Uscita</label>
                         <input
-                            type="time"
+                            type="text"
                             className="shift-input"
+                            placeholder="00:00"
+                            maxLength={5}
                             value={localRecord?.afternoon_exit || ''}
-                            onChange={(e) => setLocalRecord(prev => prev ? { ...prev, afternoon_exit: e.target.value } : null)}
+                            onChange={(e) => {
+                                let val = e.target.value.replace(/\D/g, '');
+                                if (val.length >= 2) val = val.slice(0, 2) + ':' + val.slice(2, 4);
+                                setLocalRecord(prev => prev ? { ...prev, afternoon_exit: val } : null);
+                            }}
                         />
                     </div>
                 </div>
