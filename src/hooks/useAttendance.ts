@@ -22,26 +22,38 @@ export function useAttendance(userId: string | undefined) {
 
         const dateStr = format(date, 'yyyy-MM-dd');
 
-        const { data, error } = await supabase
-            .from('daily_records')
-            .select('*')
-            .eq('user_id', userId)
-            .eq('work_date', dateStr)
-            .maybeSingle();
+        // Safety timeout
+        const timer = setTimeout(() => {
+            if (loading) {
+                console.warn("Fetch attendance timed out");
+                setLoading(false);
+            }
+        }, 5000);
 
-        if (!error) {
-            setCurrentRecord(data || {
-                work_date: dateStr,
-                morning_enter: '',
-                morning_exit: '',
-                afternoon_enter: '',
-                afternoon_exit: '',
-                notes: ''
-            });
-        } else {
-            console.error('Erro ao buscar registros:', error.message);
+        try {
+            const { data, error } = await supabase
+                .from('daily_records')
+                .select('*')
+                .eq('user_id', userId)
+                .eq('work_date', dateStr)
+                .maybeSingle();
+
+            if (!error) {
+                setCurrentRecord(data || {
+                    work_date: dateStr,
+                    morning_enter: '',
+                    morning_exit: '',
+                    afternoon_enter: '',
+                    afternoon_exit: '',
+                    notes: ''
+                });
+            } else {
+                console.error('Erro ao buscar registros:', error.message);
+            }
+        } finally {
+            setLoading(false);
+            clearTimeout(timer);
         }
-        setLoading(false);
     };
 
     const saveRecord = async (record: DailyRecord) => {
