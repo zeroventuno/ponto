@@ -47,7 +47,7 @@ function App() {
     );
   }
 
-  if (!user && !timedOut) {
+  if (!user) {
     return <AuthUI toggleTheme={toggleTheme} theme={theme} />;
   }
 
