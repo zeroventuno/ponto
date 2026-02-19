@@ -9,8 +9,7 @@ interface AuthUIProps {
 
 export const AuthUI: React.FC<AuthUIProps> = ({ toggleTheme, theme }) => {
     const [isLogin, setIsLogin] = useState(true);
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
+    const [fullName, setFullName] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -25,7 +24,10 @@ export const AuthUI: React.FC<AuthUIProps> = ({ toggleTheme, theme }) => {
                 email,
                 password,
                 options: {
-                    emailRedirectTo: import.meta.env.VITE_REDIRECT_URL || window.location.origin
+                    emailRedirectTo: import.meta.env.VITE_REDIRECT_URL || window.location.origin,
+                    data: {
+                        full_name: fullName
+                    }
                 }
             });
 
@@ -58,12 +60,25 @@ export const AuthUI: React.FC<AuthUIProps> = ({ toggleTheme, theme }) => {
                     </p>
 
                     <form onSubmit={handleSubmit}>
+                        {!isLogin && (
+                            <div className="auth-field">
+                                <label className="auth-label">Nome Completo</label>
+                                <input
+                                    type="text"
+                                    className="auth-input"
+                                    placeholder="João Silva"
+                                    value={fullName}
+                                    onChange={(e) => setFullName(e.target.value)}
+                                    required
+                                />
+                            </div>
+                        )}
                         <div className="auth-field">
                             <label className="auth-label">Email</label>
                             <input
                                 type="email"
                                 className="auth-input"
-                                placeholder="nome@esempio.it"
+                                placeholder="email@exemplo.com"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required

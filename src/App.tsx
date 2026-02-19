@@ -17,6 +17,9 @@ function App() {
 
   const [timedOut, setTimedOut] = useState(false);
 
+  const [nameUpdateLoading, setNameUpdateLoading] = useState(false);
+  const [tempName, setTempName] = useState('');
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
@@ -39,6 +42,22 @@ function App() {
     setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
   };
 
+  const handleUpdateName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !tempName.trim()) return;
+    setNameUpdateLoading(true);
+
+    // Update profile
+    const { error } = await supabase
+      .from('profiles')
+      .upsert({ id: user.id, full_name: tempName }, { onConflict: 'id' });
+
+    if (!error) {
+      window.location.reload(); // Quickest way to refresh profile
+    }
+    setNameUpdateLoading(false);
+  };
+
   if (loading && !timedOut) {
     return (
       <div className="loading-container" style={{ minHeight: '100vh' }}>
@@ -49,6 +68,43 @@ function App() {
 
   if (!user) {
     return <AuthUI toggleTheme={toggleTheme} theme={theme} />;
+  }
+
+  // Profile completion check
+  if (user && profile && !profile.full_name) {
+    return (
+      <div className="auth-page">
+        <header className="app-header">
+          <div className="app-logo">
+            <div className="app-logo-icon"><HourglassIcon size={28} /></div>
+            <span className="app-logo-text">Ponto</span>
+          </div>
+        </header>
+        <main className="auth-card" style={{ marginTop: 80 }}>
+          <h2 className="auth-title">Completa il tuo profilo</h2>
+          <p className="auth-subtitle">Per favore inserisci il teu nome e cognome per continuare.</p>
+          <form onSubmit={handleUpdateName}>
+            <div className="auth-field">
+              <label className="auth-label">Nome Completo</label>
+              <input
+                type="text"
+                className="auth-input"
+                placeholder="João Silva"
+                value={tempName}
+                onChange={(e) => setTempName(e.target.value)}
+                required
+              />
+            </div>
+            <button type="submit" className="save-btn" disabled={nameUpdateLoading}>
+              {nameUpdateLoading ? 'Salvataggio...' : 'Continua'}
+            </button>
+          </form>
+          <button className="secondary-btn" onClick={() => supabase.auth.signOut()} style={{ marginTop: 16 }}>
+            Esci
+          </button>
+        </main>
+      </div>
+    );
   }
 
   return (

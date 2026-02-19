@@ -1,3 +1,14 @@
+-- FUNZIONE HELPER PER SICUREZZA (Evita recursione RLS)
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS boolean AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND role = 'admin'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- PROFILI UTENTE
 CREATE TABLE IF NOT EXISTS profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -13,9 +24,7 @@ DO $$ BEGIN
   CREATE POLICY "Users can view their own profile" ON profiles FOR SELECT USING (auth.uid() = id);
   
   DROP POLICY IF EXISTS "Admins can view all profiles" ON profiles;
-  CREATE POLICY "Admins can view all profiles" ON profiles FOR SELECT USING (
-    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
-  );
+  CREATE POLICY "Admins can view all profiles" ON profiles FOR SELECT USING (is_admin());
 END $$;
 
 -- REGISTRI GIORNALIERI
@@ -36,12 +45,14 @@ ALTER TABLE daily_records ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
   DROP POLICY IF EXISTS "Users can manage their own daily records" ON daily_records;
-  CREATE POLICY "Users can manage their own daily records" ON daily_records FOR ALL USING (auth.uid() = user_id);
+  CREATE POLICY "Users can manage their own daily records" 
+    ON daily_records FOR ALL 
+    USING (auth.uid() = user_id);
 
   DROP POLICY IF EXISTS "Admins can view all daily records" ON daily_records;
-  CREATE POLICY "Admins can view all daily records" ON daily_records FOR SELECT USING (
-    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
-  );
+  CREATE POLICY "Admins can view all daily records" 
+    ON daily_records FOR SELECT 
+    USING (is_admin());
 END $$;
 
 -- CHIUSURE MENSILI
@@ -57,12 +68,14 @@ ALTER TABLE monthly_closures ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN
   DROP POLICY IF EXISTS "Users can manage their own closures" ON monthly_closures;
-  CREATE POLICY "Users can manage their own closures" ON monthly_closures FOR ALL USING (auth.uid() = user_id);
+  CREATE POLICY "Users can manage their own closures" 
+    ON monthly_closures FOR ALL 
+    USING (auth.uid() = user_id);
 
   DROP POLICY IF EXISTS "Admins can view all closures" ON monthly_closures;
-  CREATE POLICY "Admins can view all closures" ON monthly_closures FOR SELECT USING (
-    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
-  );
+  CREATE POLICY "Admins can view all closures" 
+    ON monthly_closures FOR SELECT 
+    USING (is_admin());
 END $$;
 
 -- TRIGGER PER NUOVI UTENTI
