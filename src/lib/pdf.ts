@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend } from 'date-fns';
+import { it } from 'date-fns/locale';
 
 // Extend jsPDF with autotable
 declare module 'jspdf' {
