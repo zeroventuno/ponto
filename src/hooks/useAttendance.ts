@@ -38,6 +38,8 @@ export function useAttendance(userId: string | undefined) {
                 afternoon_exit: '',
                 notes: ''
             });
+        } else {
+            console.error('Erro ao buscar registros:', error.message);
         }
         setLoading(false);
     };
