@@ -44,12 +44,18 @@ export function useAuth() {
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
             const currentUser = session?.user ?? null;
             setUser(currentUser);
-            if (currentUser) {
-                await fetchProfile(currentUser.id);
-            } else {
-                setProfile(null);
+
+            try {
+                if (currentUser) {
+                    await fetchProfile(currentUser.id);
+                } else {
+                    setProfile(null);
+                }
+            } catch (err) {
+                console.error("Auth change error:", err);
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         });
 
         return () => subscription.unsubscribe();

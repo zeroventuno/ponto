@@ -20,6 +20,19 @@ function App() {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  // Safety timeout for loading state
+  useEffect(() => {
+    if (loading) {
+      const timer = setTimeout(() => {
+        console.warn("Loading taking too long, forcing entry...");
+        // Although we can't force the 'loading' state from useAuth directly here, 
+        // we can potentially have a local force state if needed.
+        // For now, let's just monitor.
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [loading]);
+
   const toggleTheme = () => {
     setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
   };
