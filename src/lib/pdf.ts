@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { it } from 'date-fns/locale/it';
 
 // Extend jsPDF with autotable
@@ -48,10 +48,15 @@ export const generateAttendancePDF = async ({ userName, month, records }: PDFDat
     let totalFerie = 0;
     let workingDaysCount = 0;
 
+    const formatDecimalToTime = (decimal: number) => {
+        const h = Math.floor(decimal);
+        const m = Math.round((decimal - h) * 60);
+        return `${h}:${m.toString().padStart(2, '0')}`;
+    };
+
     const tableData = days.map(day => {
         const dateStr = format(day, 'yyyy-MM-dd');
         const rec = records.find(r => r.work_date === dateStr);
-        const isDayWeekend = isWeekend(day);
 
         let h = 0;
         let overtime = 0;
@@ -59,26 +64,27 @@ export const generateAttendancePDF = async ({ userName, month, records }: PDFDat
         let ferie = 0;
 
         if (rec) {
-            const mEnter = parseTime(rec.morning_enter);
-            const mExit = parseTime(rec.morning_exit);
-            const aEnter = parseTime(rec.afternoon_enter);
-            const aExit = parseTime(rec.afternoon_exit);
-
-            const mH = (mEnter !== null && mExit !== null) ? Math.max(0, mExit - mEnter) : 0;
-            const aH = (aEnter !== null && aExit !== null) ? Math.max(0, aExit - aEnter) : 0;
-            h = mH + aH;
-
-            if (h === 0 && !isDayWeekend) {
+            if (rec.is_vacation) {
                 ferie = 8;
-            } else if (h > 8) {
-                overtime = h - 8;
-            } else if (h < 8 && h > 0) {
-                permessi = 8 - h;
+            } else {
+                const mEnter = parseTime(rec.morning_enter);
+                const mExit = parseTime(rec.morning_exit);
+                const aEnter = parseTime(rec.afternoon_enter);
+                const aExit = parseTime(rec.afternoon_exit);
+
+                const mH = (mEnter !== null && mExit !== null) ? Math.max(0, mExit - mEnter) : 0;
+                const aH = (aEnter !== null && aExit !== null) ? Math.max(0, aExit - aEnter) : 0;
+                h = mH + aH;
+
+                const THRESHOLD = 4;
+                if (h > THRESHOLD) {
+                    overtime = h - THRESHOLD;
+                } else if (h < THRESHOLD && h > 0) {
+                    permessi = THRESHOLD - h;
+                }
             }
 
-            if (h > 0) workingDaysCount++;
-        } else if (!isDayWeekend) {
-            ferie = 8;
+            if (h > 0 || rec.is_vacation) workingDaysCount++;
         }
 
         totalHours += h;
@@ -88,12 +94,12 @@ export const generateAttendancePDF = async ({ userName, month, records }: PDFDat
 
         return [
             format(day, 'EEEE, d MMMM yyyy', { locale: it }),
-            h > 0 ? h.toFixed(1).replace('.', ',') : '',
-            overtime > 0 ? overtime.toFixed(1).replace('.', ',') : '',
+            h > 0 ? formatDecimalToTime(h) : '',
+            overtime > 0 ? formatDecimalToTime(overtime) : '',
             '', // Empty col 1
             '', // Empty col 2
-            ferie > 0 ? ferie.toFixed(1).replace('.', ',') : '',
-            permessi > 0 ? permessi.toFixed(1).replace('.', ',') : ''
+            ferie > 0 ? formatDecimalToTime(ferie) : '',
+            permessi > 0 ? formatDecimalToTime(permessi) : ''
         ];
     });
 
@@ -137,12 +143,12 @@ export const generateAttendancePDF = async ({ userName, month, records }: PDFDat
         startY: finalY,
         body: [[
             'Sommatoria',
-            totalHours.toFixed(1).replace('.', ','),
-            totalOvertime.toFixed(1).replace('.', ','),
-            '0,0',
-            '0,0',
-            totalFerie.toFixed(1).replace('.', ','),
-            totalPermessi.toFixed(1).replace('.', ',')
+            formatDecimalToTime(totalHours),
+            formatDecimalToTime(totalOvertime),
+            '0:00',
+            '0:00',
+            formatDecimalToTime(totalFerie),
+            formatDecimalToTime(totalPermessi)
         ]],
         theme: 'grid',
         styles: { fontSize: 11, fontStyle: 'bold', halign: 'center' },
@@ -181,9 +187,9 @@ export const generateAttendancePDF = async ({ userName, month, records }: PDFDat
     doc.rect(standardSecX, summaryY, boxW * 2, boxH, 'D');
     doc.setFontSize(8);
     doc.text('tot ore STANDARD', standardSecX + 2, summaryY + 6);
-    doc.text('= A * 8h', standardSecX + 2, summaryY + 10);
+    doc.text('= A * 4h', standardSecX + 2, summaryY + 10);
     doc.setFontSize(12);
-    doc.text((workingDaysCount * 8).toString(), standardSecX + boxW * 2 - 5, summaryY + 9, { align: 'right' });
+    doc.text(formatDecimalToTime(workingDaysCount * 4), standardSecX + boxW * 2 - 5, summaryY + 9, { align: 'right' });
 
     // Final Totals
     const finalTotalsX = standardSecX + boxW * 2 + 5;
@@ -194,14 +200,14 @@ export const generateAttendancePDF = async ({ userName, month, records }: PDFDat
     doc.rect(finalTotalsX, summaryY, boxW, boxH, 'D');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(12);
-    doc.text(totalFerie.toFixed(1).replace('.', ','), finalTotalsX + boxW / 2, summaryY + 9, { align: 'center' });
+    doc.text(formatDecimalToTime(totalFerie), finalTotalsX + boxW / 2, summaryY + 9, { align: 'center' });
 
     // Permessi Box
     doc.setFillColor(greenBox[0], greenBox[1], greenBox[2]);
     doc.rect(finalTotalsX + boxW, summaryY, boxW, boxH, 'F');
     doc.rect(finalTotalsX + boxW, summaryY, boxW, boxH, 'D');
     doc.setTextColor(0, 0, 0);
-    doc.text(totalPermessi.toFixed(1).replace('.', ','), finalTotalsX + boxW + boxW / 2, summaryY + 9, { align: 'center' });
+    doc.text(formatDecimalToTime(totalPermessi), finalTotalsX + boxW + boxW / 2, summaryY + 9, { align: 'center' });
 
     // Save PDF
     doc.save(`Ponto_${userName.replace(' ', '_')}_${format(month, 'MM_yyyy')}.pdf`);

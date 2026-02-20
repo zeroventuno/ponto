@@ -9,6 +9,7 @@ export interface DailyRecord {
     morning_exit: string;
     afternoon_enter: string;
     afternoon_exit: string;
+    is_vacation?: boolean;
     notes: string;
 }
 
@@ -45,6 +46,7 @@ export function useAttendance(userId: string | undefined) {
                     morning_exit: '',
                     afternoon_enter: '',
                     afternoon_exit: '',
+                    is_vacation: false,
                     notes: ''
                 });
             } else {
@@ -77,9 +79,14 @@ export function useAttendance(userId: string | undefined) {
     const calculateStats = (record: DailyRecord | null) => {
         if (!record) return { total: 0, extraordinary: 0, permesso: 0, ferie: 0 };
 
+        if (record.is_vacation) {
+            return { total: 0, extraordinary: 0, permesso: 0, ferie: 8 };
+        }
+
         const parseTime = (time: string) => {
             if (!time) return null;
             const [hours, minutes] = time.split(':').map(Number);
+            if (isNaN(hours) || isNaN(minutes)) return null;
             return hours + minutes / 60;
         };
 
@@ -100,15 +107,27 @@ export function useAttendance(userId: string | undefined) {
         let permesso = 0;
         let ferie = 0;
 
+        // Threshold changed to 4h as per user request
+        const THRESHOLD = 4;
+
         if (total === 0) {
-            ferie = 8;
-        } else if (total > 8) {
-            extraordinary = total - 8;
-        } else if (total < 8) {
-            permesso = 8 - total;
+            // No hours and not marked vacation? Maybe still 0 or keep old ferie = 8 logic?
+            // User said: "Se noa tiver registro, deve ter um botao para marcar ferias e deve lançar 8 horas na tabela como ferias."
+            // So if total is 0 and not marked holiday, everything is 0.
+            ferie = 0;
+        } else if (total > THRESHOLD) {
+            extraordinary = total - THRESHOLD;
+        } else if (total < THRESHOLD) {
+            permesso = THRESHOLD - total;
         }
 
         return { total, extraordinary, permesso, ferie };
+    };
+
+    const formatDecimalToTime = (decimal: number) => {
+        const h = Math.floor(decimal);
+        const m = Math.round((decimal - h) * 60);
+        return `${h}:${m.toString().padStart(2, '0')}`;
     };
 
     return {
@@ -116,6 +135,7 @@ export function useAttendance(userId: string | undefined) {
         loading,
         fetchRecordForDate,
         saveRecord,
-        calculateStats
+        calculateStats,
+        formatDecimalToTime
     };
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAttendance, type DailyRecord } from '../hooks/useAttendance';
-import { Save, History, Calendar, ChevronLeft, ChevronRight, Clock, Sun, Moon } from 'lucide-react';
+import { Save, History, Calendar, ChevronLeft, ChevronRight, Clock, Sun, Moon, X } from 'lucide-react';
 import {
     format,
     addDays,
@@ -23,7 +23,7 @@ interface DashboardProps {
 export const Dashboard: React.FC<DashboardProps> = ({ userId, onViewHistory }) => {
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [viewMonth, setViewMonth] = useState(new Date());
-    const { currentRecord, loading, fetchRecordForDate, saveRecord, calculateStats } = useAttendance(userId);
+    const { currentRecord, loading, fetchRecordForDate, saveRecord, calculateStats, formatDecimalToTime } = useAttendance(userId);
     const [localRecord, setLocalRecord] = useState<DailyRecord | null>(null);
     const [isSaving, setIsSaving] = useState(false);
 
@@ -240,23 +240,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ userId, onViewHistory }) =
             {/* Summary */}
             <div className="summary-card">
                 <div className="summary-header">
-                    <span className="summary-title">Sommario Ore</span>
-                    {stats.total === 0 && localRecord && (
+                    {stats.ferie > 0 && (
                         <span className="summary-badge">Ferie</span>
                     )}
                 </div>
                 <div className="summary-grid">
                     <div className="summary-stat">
                         <div className="summary-stat-label">Totali</div>
-                        <div className="summary-stat-value stat-total">{stats.total.toFixed(2)}h</div>
+                        <div className="summary-stat-value stat-total">{formatDecimalToTime(stats.total)}</div>
                     </div>
                     <div className="summary-stat">
                         <div className="summary-stat-label">Extra</div>
-                        <div className="summary-stat-value stat-extra">+{stats.extraordinary.toFixed(2)}h</div>
+                        <div className="summary-stat-value stat-extra">+{formatDecimalToTime(stats.extraordinary)}</div>
                     </div>
                     <div className="summary-stat">
                         <div className="summary-stat-label">Permessi</div>
-                        <div className="summary-stat-value stat-leave">{stats.permesso.toFixed(2)}h</div>
+                        <div className="summary-stat-value stat-leave">{formatDecimalToTime(stats.permesso)}</div>
                     </div>
                 </div>
             </div>
@@ -266,6 +265,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ userId, onViewHistory }) =
                 <button className="save-btn" onClick={handleSave} disabled={isSaving}>
                     {isSaving ? 'Salvataggio...' : <><Save size={22} /> Salva Registro</>}
                 </button>
+                {stats.total === 0 && !localRecord?.is_vacation && (
+                    <button
+                        className="secondary-btn"
+                        onClick={() => setLocalRecord(prev => prev ? { ...prev, is_vacation: true } : null)}
+                        style={{ color: 'var(--md-success)' }}
+                    >
+                        <Calendar size={18} /> Segna Ferie
+                    </button>
+                )}
+                {localRecord?.is_vacation && (
+                    <button
+                        className="secondary-btn"
+                        onClick={() => setLocalRecord(prev => prev ? { ...prev, is_vacation: false } : null)}
+                        style={{ color: 'var(--md-error)' }}
+                    >
+                        <X size={18} /> Rimuovi Ferie
+                    </button>
+                )}
                 <button className="secondary-btn" onClick={onViewHistory}>
                     <History size={18} /> Visualizza Storico
                 </button>

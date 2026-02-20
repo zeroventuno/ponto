@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { X, Download, FileCheck } from 'lucide-react';
+import { X, Download, FileCheck, FileText } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { generateAttendancePDF } from '../lib/pdf';
+import { useAttendance } from '../hooks/useAttendance';
 
 interface MonthCloseProps {
     userId: string;
@@ -30,6 +32,17 @@ const parseTime = (time: string): number | null => {
 export const MonthClose: React.FC<MonthCloseProps> = ({ userId, month, onClose }) => {
     const [rows, setRows] = useState<DayRow[]>([]);
     const [loading, setLoading] = useState(true);
+    const { formatDecimalToTime } = useAttendance(userId);
+    const [profile, setProfile] = useState<any>(null);
+
+    useEffect(() => {
+        fetchProfile();
+    }, [userId]);
+
+    const fetchProfile = async () => {
+        const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
+        setProfile(data);
+    };
 
     useEffect(() => {
         fetchAndCalculate();
@@ -66,6 +79,18 @@ export const MonthClose: React.FC<MonthCloseProps> = ({ userId, month, onClose }
                 };
             }
 
+            if (rec?.is_vacation) {
+                return {
+                    date: format(day, 'dd/MM'),
+                    dayName: format(day, 'EEE', { locale: it }),
+                    total: 0,
+                    straordinario: 0,
+                    permesso: 0,
+                    ferie: 8,
+                    notes: rec.notes || ''
+                };
+            }
+
             const mEnter = parseTime(rec.morning_enter);
             const mExit = parseTime(rec.morning_exit);
             const aEnter = parseTime(rec.afternoon_enter);
@@ -81,12 +106,14 @@ export const MonthClose: React.FC<MonthCloseProps> = ({ userId, month, onClose }
             let permesso = 0;
             let ferie = 0;
 
+            const THRESHOLD = 4;
+
             if (total === 0) {
-                ferie = 8;
-            } else if (total > 8) {
-                straordinario = total - 8;
-            } else if (total < 8) {
-                permesso = 8 - total;
+                ferie = 0;
+            } else if (total > THRESHOLD) {
+                straordinario = total - THRESHOLD;
+            } else if (total < THRESHOLD) {
+                permesso = THRESHOLD - total;
             }
 
             return {
@@ -115,24 +142,23 @@ export const MonthClose: React.FC<MonthCloseProps> = ({ userId, month, onClose }
     );
 
     const exportToExcel = () => {
-        // ... (existing logic)
         const data = rows.map(r => ({
             Data: r.date,
             Giorno: r.dayName,
-            'Ore Totali': r.total.toFixed(2),
-            'Straordinario': r.straordinario.toFixed(2),
-            'Permesso': r.permesso.toFixed(2),
-            'Ferie': r.ferie.toFixed(2),
+            'Ore Totali': formatDecimalToTime(r.total),
+            'Straordinario': formatDecimalToTime(r.straordinario),
+            'Permesso': formatDecimalToTime(r.permesso),
+            'Ferie': formatDecimalToTime(r.ferie),
             'Note': r.notes
         }));
 
         data.push({
             Data: 'TOTALE',
             Giorno: '',
-            'Ore Totali': totals.total.toFixed(2),
-            'Straordinario': totals.straordinario.toFixed(2),
-            'Permesso': totals.permesso.toFixed(2),
-            'Ferie': totals.ferie.toFixed(2),
+            'Ore Totali': formatDecimalToTime(totals.total),
+            'Straordinario': formatDecimalToTime(totals.straordinario),
+            'Permesso': formatDecimalToTime(totals.permesso),
+            'Ferie': formatDecimalToTime(totals.ferie),
             'Note': ''
         });
 
@@ -140,6 +166,21 @@ export const MonthClose: React.FC<MonthCloseProps> = ({ userId, month, onClose }
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Chiusura Mese");
         XLSX.writeFile(wb, `Chiusura_${format(month, 'MMMM_yyyy')}.xlsx`);
+    };
+
+    const handleDownloadPDF = async () => {
+        const { data: records } = await supabase
+            .from('daily_records')
+            .select('*')
+            .eq('user_id', userId)
+            .gte('work_date', format(startOfMonth(month), 'yyyy-MM-dd'))
+            .lte('work_date', format(endOfMonth(month), 'yyyy-MM-dd'));
+
+        await generateAttendancePDF({
+            userName: profile?.full_name || 'Dipendente',
+            month: month,
+            records: records || []
+        });
     };
 
     const submitClosure = async () => {
@@ -202,15 +243,15 @@ export const MonthClose: React.FC<MonthCloseProps> = ({ userId, month, onClose }
                                         <tr key={i}>
                                             <td>{row.date}</td>
                                             <td style={{ textTransform: 'capitalize' }}>{row.dayName}</td>
-                                            <td>{row.total.toFixed(2)}</td>
+                                            <td style={{ fontWeight: 600 }}>{formatDecimalToTime(row.total)}</td>
                                             <td style={{ color: row.straordinario > 0 ? 'var(--md-warning)' : undefined }}>
-                                                {row.straordinario > 0 ? `+${row.straordinario.toFixed(2)}` : '—'}
+                                                {row.straordinario > 0 ? `+${formatDecimalToTime(row.straordinario)}` : '—'}
                                             </td>
                                             <td style={{ color: row.permesso > 0 ? 'var(--md-error)' : undefined }}>
-                                                {row.permesso > 0 ? row.permesso.toFixed(2) : '—'}
+                                                {row.permesso > 0 ? formatDecimalToTime(row.permesso) : '—'}
                                             </td>
                                             <td style={{ color: row.ferie > 0 ? 'var(--md-success)' : undefined }}>
-                                                {row.ferie > 0 ? `${row.ferie.toFixed(2)}` : '—'}
+                                                {row.ferie > 0 ? `${formatDecimalToTime(row.ferie)}` : '—'}
                                             </td>
                                             <td className="report-note-cell">{row.notes || '—'}</td>
                                         </tr>
@@ -219,10 +260,10 @@ export const MonthClose: React.FC<MonthCloseProps> = ({ userId, month, onClose }
                                 <tfoot>
                                     <tr>
                                         <td colSpan={2}>TOTALE</td>
-                                        <td>{totals.total.toFixed(2)}</td>
-                                        <td>+{totals.straordinario.toFixed(2)}</td>
-                                        <td>{totals.permesso.toFixed(2)}</td>
-                                        <td>{totals.ferie.toFixed(2)}</td>
+                                        <td style={{ fontWeight: 700 }}>{formatDecimalToTime(totals.total)}</td>
+                                        <td>+{formatDecimalToTime(totals.straordinario)}</td>
+                                        <td>{formatDecimalToTime(totals.permesso)}</td>
+                                        <td>{formatDecimalToTime(totals.ferie)}</td>
                                         <td></td>
                                     </tr>
                                 </tfoot>
@@ -231,10 +272,13 @@ export const MonthClose: React.FC<MonthCloseProps> = ({ userId, month, onClose }
 
                         <div className="report-export-row">
                             <button className="secondary-btn" onClick={submitClosure} style={{ flex: 1, height: 44 }}>
-                                <FileCheck size={18} /> Invia all'Amministrazione
+                                <FileCheck size={18} /> Invia Ammin.
                             </button>
-                            <button className="export-btn" onClick={exportToExcel} style={{ flex: 1, height: 44 }}>
-                                <Download size={18} /> Esporta Excel
+                            <button className="export-btn" onClick={handleDownloadPDF} style={{ flex: 1, height: 44, background: 'var(--md-primary)', color: 'white' }}>
+                                <FileText size={18} /> Scarica PDF
+                            </button>
+                            <button className="secondary-btn" onClick={exportToExcel} style={{ flex: 1, height: 44 }}>
+                                <Download size={18} /> Excel
                             </button>
                         </div>
                     </>
