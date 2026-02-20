@@ -2,18 +2,21 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { Download, ChevronLeft, ChevronRight, FileCheck } from 'lucide-react';
+import { Download, ChevronLeft, ChevronRight, FileCheck, Trash2, CheckCircle, Circle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { MonthClose } from './MonthClose';
 
 interface HistoryProps {
     userId: string;
+    onDateSelect: (date: Date) => void;
 }
 
-export const History: React.FC<HistoryProps> = ({ userId }) => {
+export const History: React.FC<HistoryProps> = ({ userId, onDateSelect }) => {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [records, setRecords] = useState<any[]>([]);
     const [showMonthClose, setShowMonthClose] = useState(false);
+    const [selectedDates, setSelectedDates] = useState<string[]>([]);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
         fetchMonthRecords();
@@ -33,6 +36,34 @@ export const History: React.FC<HistoryProps> = ({ userId }) => {
         if (!error && data) {
             setRecords(data);
         }
+        setSelectedDates([]); // Clear selection on month change
+    };
+
+    const handleDelete = async () => {
+        if (selectedDates.length === 0) return;
+        if (!confirm(`Sei sicuro di voler eliminare ${selectedDates.length} record?`)) return;
+
+        setIsDeleting(true);
+        const { error } = await supabase
+            .from('daily_records')
+            .delete()
+            .eq('user_id', userId)
+            .in('work_date', selectedDates);
+
+        if (!error) {
+            setRecords(prev => prev.filter(r => !selectedDates.includes(r.work_date)));
+            setSelectedDates([]);
+        }
+        setIsDeleting(false);
+    };
+
+    const toggleSelect = (dateStr: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setSelectedDates(prev =>
+            prev.includes(dateStr)
+                ? prev.filter(d => d !== dateStr)
+                : [...prev, dateStr]
+        );
     };
 
     const exportToExcel = () => {
@@ -101,6 +132,11 @@ export const History: React.FC<HistoryProps> = ({ userId }) => {
                     <button className="export-btn" onClick={() => setShowMonthClose(true)} style={{ background: 'var(--md-surface-variant)', color: 'var(--md-on-surface)' }}>
                         <FileCheck size={18} /> Chiusura Mese
                     </button>
+                    {selectedDates.length > 0 && (
+                        <button className="export-btn" onClick={handleDelete} disabled={isDeleting} style={{ background: 'var(--md-error-container)', color: 'var(--md-error)' }}>
+                            <Trash2 size={18} /> Elimina ({selectedDates.length})
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -113,9 +149,19 @@ export const History: React.FC<HistoryProps> = ({ userId }) => {
                     return (
                         <div
                             key={day.toISOString()}
-                            className="history-day"
+                            className={`history-day${selectedDates.includes(dateStr) ? ' selected' : ''}`}
                             style={isToday ? { borderLeft: '4px solid var(--md-primary)' } : {}}
+                            onClick={() => onDateSelect(day)}
                         >
+                            <div
+                                className="history-day-select"
+                                onClick={(e) => toggleSelect(dateStr, e)}
+                            >
+                                {selectedDates.includes(dateStr)
+                                    ? <CheckCircle size={20} color="var(--md-primary)" />
+                                    : <Circle size={20} color="var(--md-outline)" />
+                                }
+                            </div>
                             <div className={`history-day-badge ${record ? 'has-record' : 'no-record'}`}>
                                 <span className="history-day-badge-abbr">{format(day, 'EEE', { locale: it })}</span>
                                 <span className="history-day-badge-num">{format(day, 'd')}</span>
@@ -123,7 +169,9 @@ export const History: React.FC<HistoryProps> = ({ userId }) => {
                             <div className="history-day-info">
                                 <div className="history-day-hours">
                                     {record
-                                        ? `${record.morning_enter || '--:--'} → ${record.afternoon_exit || '--:--'}`
+                                        ? record.is_vacation
+                                            ? 'FERIE (8:00)'
+                                            : `${record.morning_enter || '--:--'} → ${record.afternoon_exit || '--:--'}`
                                         : 'Nessun record'
                                     }
                                 </div>

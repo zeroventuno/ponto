@@ -17,11 +17,12 @@ import { it } from 'date-fns/locale';
 
 interface DashboardProps {
     userId: string;
+    selectedDate: Date;
+    onDateChange: (date: Date) => void;
     onViewHistory: () => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ userId, onViewHistory }) => {
-    const [selectedDate, setSelectedDate] = useState(new Date());
+export const Dashboard: React.FC<DashboardProps> = ({ userId, selectedDate, onDateChange, onViewHistory }) => {
     const [viewMonth, setViewMonth] = useState(new Date());
     const { currentRecord, loading, fetchRecordForDate, saveRecord, calculateStats, formatDecimalToTime } = useAttendance(userId);
     const [localRecord, setLocalRecord] = useState<DailyRecord | null>(null);
@@ -96,7 +97,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userId, onViewHistory }) =
                             <div key={day.toISOString()} className="cal-day-cell">
                                 <button
                                     onClick={() => {
-                                        setSelectedDate(day);
+                                        onDateChange(day);
                                         if (!isSameMonth(day, viewMonth)) setViewMonth(startOfMonth(day));
                                     }}
                                     className={`cal-day${isSelected ? ' selected' : ''}${isToday && !isSelected ? ' today' : ''}${!isCurrentMonth ? ' other-month' : ''}`}
@@ -115,7 +116,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userId, onViewHistory }) =
                         return (
                             <button
                                 key={day.toISOString()}
-                                onClick={() => setSelectedDate(day)}
+                                onClick={() => onDateChange(day)}
                                 className={`week-chip${isSelected ? ' active' : ''}`}
                             >
                                 <span className="week-chip-day">{format(day, 'EEE', { locale: it })}</span>
@@ -140,7 +141,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ userId, onViewHistory }) =
                     className="today-btn"
                     onClick={() => {
                         const today = new Date();
-                        setSelectedDate(today);
+                        onDateChange(today);
                         setViewMonth(today);
                     }}
                     title="Oggi"
@@ -268,7 +269,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ userId, onViewHistory }) =
                 {stats.total === 0 && !localRecord?.is_vacation && (
                     <button
                         className="secondary-btn"
-                        onClick={() => setLocalRecord(prev => prev ? { ...prev, is_vacation: true } : null)}
+                        onClick={async () => {
+                            if (!localRecord) return;
+                            const updated = { ...localRecord, is_vacation: true };
+                            setLocalRecord(updated);
+                            await saveRecord(updated);
+                        }}
                         style={{ color: 'var(--md-success)' }}
                     >
                         <Calendar size={18} /> Segna Ferie
@@ -277,7 +283,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ userId, onViewHistory }) =
                 {localRecord?.is_vacation && (
                     <button
                         className="secondary-btn"
-                        onClick={() => setLocalRecord(prev => prev ? { ...prev, is_vacation: false } : null)}
+                        onClick={async () => {
+                            if (!localRecord) return;
+                            const updated = { ...localRecord, is_vacation: false };
+                            setLocalRecord(updated);
+                            await saveRecord(updated);
+                        }}
                         style={{ color: 'var(--md-error)' }}
                     >
                         <X size={18} /> Rimuovi Ferie

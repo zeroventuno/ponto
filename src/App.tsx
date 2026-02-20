@@ -11,6 +11,7 @@ import { supabase } from './lib/supabase';
 function App() {
   const { user, profile, loading } = useAuth();
   const [activeTab, setActiveTab] = useState<'clock' | 'history' | 'admin'>('clock');
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [theme, setTheme] = useState<'light' | 'dark'>(
     (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
   );
@@ -50,7 +51,8 @@ function App() {
     // Update profile
     const { error } = await supabase
       .from('profiles')
-      .upsert({ id: user.id, full_name: tempName }, { onConflict: 'id' });
+      .update({ full_name: tempName })
+      .eq('id', user.id);
 
     if (!error) {
       window.location.reload(); // Quickest way to refresh profile
@@ -128,9 +130,20 @@ function App() {
 
       <main>
         {activeTab === 'clock' ? (
-          <Dashboard userId={user.id} onViewHistory={() => setActiveTab('history')} />
+          <Dashboard
+            userId={user.id}
+            selectedDate={selectedDate}
+            onDateChange={setSelectedDate}
+            onViewHistory={() => setActiveTab('history')}
+          />
         ) : activeTab === 'history' ? (
-          <History userId={user.id} />
+          <History
+            userId={user.id}
+            onDateSelect={(date) => {
+              setSelectedDate(date);
+              setActiveTab('clock');
+            }}
+          />
         ) : (
           <AdminDashboard />
         )}
