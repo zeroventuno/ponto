@@ -3,20 +3,19 @@ import { useAuth } from './hooks/useAuth';
 import { AuthUI } from './components/AuthUI';
 import { Dashboard } from './components/Dashboard';
 import { History } from './components/History';
-import { History as HistoryIcon, Clock, LogOut, Sun, Moon, ShieldCheck } from 'lucide-react';
+import { History as HistoryIcon, Clock, LogOut, Sun, Moon, ShieldCheck, User } from 'lucide-react';
 import { AdminDashboard } from './components/AdminDashboard';
 import { HourglassIcon } from './components/HourglassIcon';
+import { UserProfile } from './components/UserProfile';
 import { supabase } from './lib/supabase';
 
 function App() {
   const { user, profile, loading } = useAuth();
-  const [activeTab, setActiveTab] = useState<'clock' | 'history' | 'admin'>('clock');
+  const [activeTab, setActiveTab] = useState<'clock' | 'history' | 'admin' | 'profile'>('clock');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [theme, setTheme] = useState<'light' | 'dark'>(
     (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
   );
-
-  const [timedOut, setTimedOut] = useState(false);
 
   const [nameUpdateLoading, setNameUpdateLoading] = useState(false);
   const [tempName, setTempName] = useState('');
@@ -25,19 +24,6 @@ function App() {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
-
-  // Safety timeout for loading state
-  useEffect(() => {
-    if (loading) {
-      const timer = setTimeout(() => {
-        console.warn("Loading taking too long, forcing entry...");
-        setTimedOut(true);
-      }, 5000);
-      return () => clearTimeout(timer);
-    } else {
-      setTimedOut(false);
-    }
-  }, [loading]);
 
   const toggleTheme = () => {
     setTheme(prev => (prev === 'light' ? 'dark' : 'light'));
@@ -60,7 +46,7 @@ function App() {
     setNameUpdateLoading(false);
   };
 
-  if (loading && !timedOut) {
+  if (loading) {
     return (
       <div className="loading-container" style={{ minHeight: '100vh' }}>
         <div className="spinner" />
@@ -144,6 +130,8 @@ function App() {
               setActiveTab('clock');
             }}
           />
+        ) : activeTab === 'profile' ? (
+          <UserProfile userId={user.id} />
         ) : (
           <AdminDashboard />
         )}
@@ -167,6 +155,15 @@ function App() {
             <HistoryIcon size={22} />
           </div>
           <span className="m3-nav-label">Storico</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('profile')}
+          className={`m3-nav-item${activeTab === 'profile' ? ' active' : ''}`}
+        >
+          <div className="m3-nav-indicator">
+            <User size={22} />
+          </div>
+          <span className="m3-nav-label">Profilo</span>
         </button>
         {profile?.role === 'admin' && (
           <button

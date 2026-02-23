@@ -28,56 +28,36 @@ export function useAuth() {
     };
 
     useEffect(() => {
-        // Safety timeout to prevent infinite loading
-        const safetyTimer = setTimeout(() => {
-            if (loading) {
-                console.warn("Auth check timed out, forcing loading false");
-                setLoading(false);
-            }
-        }, 5000);
-
-        // Check active session
-        supabase.auth.getSession().then(async ({ data: { session } }) => {
+        // Quick session check resolves immediately
+        supabase.auth.getSession().then(({ data: { session } }) => {
             const currentUser = session?.user ?? null;
             setUser(currentUser);
-            try {
-                if (currentUser) {
-                    await fetchProfile(currentUser.id);
-                } else {
-                    setProfile(null);
-                }
-            } catch (err) {
-                console.error("Initial session error:", err);
-            } finally {
-                setLoading(false);
-                clearTimeout(safetyTimer);
+            setLoading(false); // Make app render fast
+
+            if (currentUser) {
+                fetchProfile(currentUser.id);
             }
+        }).catch(() => {
+            setLoading(false);
         });
 
-        // Listen for changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        // Listen for Auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             const currentUser = session?.user ?? null;
             setUser(currentUser);
+            setLoading(false);
 
-            try {
-                if (currentUser) {
-                    await fetchProfile(currentUser.id);
-                } else {
-                    setProfile(null);
-                }
-            } catch (err) {
-                console.error("Auth change error:", err);
-            } finally {
-                setLoading(false);
-                clearTimeout(safetyTimer);
+            if (currentUser) {
+                fetchProfile(currentUser.id);
+            } else {
+                setProfile(null);
             }
         });
 
         return () => {
             subscription.unsubscribe();
-            clearTimeout(safetyTimer);
         };
     }, []);
 
-    return { user, profile, loading };
+    return { user, profile, loading, fetchProfile };
 }

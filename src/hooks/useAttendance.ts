@@ -23,14 +23,6 @@ export function useAttendance(userId: string | undefined) {
 
         const dateStr = format(date, 'yyyy-MM-dd');
 
-        // Safety timeout
-        const timer = setTimeout(() => {
-            if (loading) {
-                console.warn("Fetch attendance timed out");
-                setLoading(false);
-            }
-        }, 5000);
-
         try {
             const { data, error } = await supabase
                 .from('daily_records')
@@ -54,7 +46,6 @@ export function useAttendance(userId: string | undefined) {
             }
         } finally {
             setLoading(false);
-            clearTimeout(timer);
         }
     };
 
@@ -107,8 +98,8 @@ export function useAttendance(userId: string | undefined) {
         let permesso = 0;
         let ferie = 0;
 
-        // Threshold changed to 4h as per user request
-        const THRESHOLD = 4;
+        // Threshold changed to 8h as per user request
+        const THRESHOLD = 8;
 
         if (total === 0) {
             // No hours and not marked vacation? Maybe still 0 or keep old ferie = 8 logic?

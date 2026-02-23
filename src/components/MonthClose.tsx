@@ -106,7 +106,7 @@ export const MonthClose: React.FC<MonthCloseProps> = ({ userId, month, onClose }
             let permesso = 0;
             let ferie = 0;
 
-            const THRESHOLD = 4;
+            const THRESHOLD = 8;
 
             if (total === 0) {
                 ferie = 0;
